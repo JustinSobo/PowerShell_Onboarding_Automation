@@ -1,4 +1,4 @@
-#Defining path of current script (self)
+#Defining path of current script.
 if ($psISE)
 {
     $path = Split-Path -Path $psISE.CurrentFile.FullPath        
@@ -12,7 +12,7 @@ else
 Write-Output "Importing Modules..."
 Import-Module ActiveDirectory
 
-#Importing CSV containing list of users to be setup
+#Importing CSV containing list of users to be setup.
 Write-Output "Importing CSV..."
 $users = Import-Csv `
 -Delimiter "," `
@@ -24,10 +24,21 @@ foreach ($user in $users)
 {
 Write-Output "Creating AD User Account..." $i
 
-#Checking CSV for User Type
-#Defining User Type Variables
-#Defining User AD Creation Path
-#Defining AD GroupMembership Variables
+#Defining Password Policy
+#$password_policy = Get-RandomCharacters -length 7 -characters 'ABCDEFGHKLMNOPRSTUVWXYZabcdefghiklmnoprstuvwxyz1234567890!@#'
+#$password_policy+'!'
+
+#Defining User variables.
+$fn = $users.Firstname[$i-1]
+$ln = $users.Lastname[$i-1]
+$name = $fn + ' ' + $ln
+$userprinciplename = $ln + '@gottlieb.com'
+$sam = $ln + $fn.Substring(0,1)
+
+#Checking CSV for User Type.
+#Defining User Type Variables.
+#Defining User AD Creation Path.
+#Defining AD GroupMembership Variables.
 if (@($users.PSObject.Properties)[4].Value-eq 'Gottlieb_APP_AR')
     {
         $search_base = "CN=Generic APP AR,OU=Insurance AR,OU=Departments,OU=Jacksonville HQ,DC=MGADM"
@@ -218,66 +229,48 @@ elseif (@($users.PSObject.Properties)[4].Value -eq 'OMEGA_Poster')
     {
         $search_base = "CN=Generic Omega Posting,OU=Posters,OU=OMEGA,OU=OFFSHORE,OU=MG2,DC=MGADM"
         $path = "OU=Posters,OU=OMEGA,OU=OFFSHORE,OU=MG2,DC=MGADM"
-        $path = $search_base -split ',')[1..]
-        $user_memberships = Get-ADPrincipalGroupMembership "'Generic Omega Posting'"
+        $user_type_memberships = Get-ADPrincipalGroupMembership "'Generic Omega Posting'"
     }
 
 $user_type = Get-ADUser -Filter * -SearchBase "$search_base" `
 -Properties Enabled, Department, Title, Company, Manager, CannotChangePassword | `
 select Enabled, Department, Title, Company, Manager, CannotChangePassword    
 
-#Defining User variables
 $enabled = $user_type.Enabled
 $department = $user_type.Department
 $title = $user_type.Title
 $company = $user_type.Company
 $manager = $user_type.Manager
 $cannot_change_password = $user_type.CannotChangePassword
-$GivenName = $users.Firstname
-$Surname = $users.Lastname
-$name = $GivenName + ' ' + $Surname
-$sam_account_name = $Surname + $GivenNam.Substring(0,1)
-$userprinciplename = $sam_account_name + '@gottlieb.com'
 
-#Defining Password Policy
-$alphabet = 'a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
-$numbers = 0..9
-$special_characters = '!,#,*,(,),>,<,\,/'
-$array = @()
-$array += $alphabet.Split(',') | Get-Random -Count 4
-$array[0] = $array[0].ToUpper()
-$array[-1] = $array[-1].ToUpper()
-$array += $numbers | Get-Random -Count 2
-$array += $special_characters.Split(',') | Get-Random -Count 2
-$password_policy = ($array | Get-Random -Count $array.Count) -join ""
-$password = (ConvertTo-SecureString ($password_policy) -AsPlainText -Force)
+    $pwtext = $users.Password[$i-1] | Out-String
+    $pw = (ConvertTo-SecureString ($pwtext) -AsPlainText -Force)
 
-#Write-Output "Checking if '$sam' SAMAccountName Exist..."
-#$existing_sam_check = Get-ADUser $sam -LDAPFilter "(SamAccountName=$sam)"
-    #if ($existing_sam_check -eq $null)
-        #{
-            #Write-Output "SamAccountName = Non-Existing, script will proceed..."
-        #}
-    #elseif ($sam = $ln + $fn.Substring(0,2) -eq $null)
-        #{
-            #Write-Output "SamAccountName = Existing, script correcting attempt #1..."
-            #$sam = $ln + $fn.Substring(0,2)
-        #}
-    #elseif ($sam = $ln + $fn.Substring(0,3) -eq $null)
-        #{
-            #Write-Output "SamAccountName = Existing, script correcting attempt #2..."
-            #$sam = $ln + $fn.Substring(0,3)
-        #}
-
+    #Write-Output "Checking if '$sam' SAMAccountName Exist..."
+    #$existing_sam_check = Get-ADUser $sam -LDAPFilter "(SamAccountName=$sam)"
+        #if ($existing_sam_check -eq $null)
+            #{
+                #Write-Output "SamAccountName = Non-Existing, script will proceed..."
+            #}
+        #elseif ($sam = $ln + $fn.Substring(0,2) -eq $null)
+            #{
+                #Write-Output "SamAccountName = Existing, script correcting attempt #1..."
+                #$sam = $ln + $fn.Substring(0,2)
+            #}
+        #elseif ($sam = $ln + $fn.Substring(0,3) -eq $null)
+            #{
+                #Write-Output "SamAccountName = Existing, script correcting attempt #2..."
+                #$sam = $ln + $fn.Substring(0,3)
+            #}
 New-ADUser `
 -Name $name `
--GivenName $GivenName `
--Surname $Surname `
--AccountPassword $password `
--CannotChangePassword $cannot_change_password `
+-GivenName $fn `
+-Surname $ln `
+-AccountPassword $pw `
+-CannotChangePassword $False `
 -ChangePasswordAtLogon $True `
--SamAccountName $sam_account_name `
--Enabled $enabled `
+-SamAccountName $sam `
+-Enabled $True `
 -Path $path `
 -UserPrincipalName $userprinciplename `
 -DisplayName $name `
@@ -286,7 +279,7 @@ New-ADUser `
 -Company $company `
 -Manager $mgr `
 
-#Appending AD GroupMembership(s) to User
+#Appending AD GroupMembership(s) to User.
 if (@($users.PSObject.Properties)[3].Value -eq '1-MLZ_Coder')
     {
         $mlz_coding_group_membership.name[1..10] | Add-ADGroupMember -Members $sam
